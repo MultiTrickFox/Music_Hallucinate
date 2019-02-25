@@ -31,11 +31,26 @@ begin
             label = [i == class ? 1.0 : 0.0 for i in 1:length(out)]
             loss  = cross_entropy(out, label)
     end
-    for t in sequence
-        g = grad(result, t)
-        t += g*lr
+    sequence = [value(t - grad(result,t)*lr) for t in sequence]
+sequence
+end
+
+
+mutate(noise; prob=.1) =
+begin
+    new_noise = []
+    for (it,t) in enumerate(noise)
+        timestep = []
+        for (iv,v) in enumerate(t)
+            if rand() <= prob
+                v += randn()
+            end
+            push!(timestep, v)
+        end
+        timestep = reshape(timestep, 1, length(timestep))
+        push!(new_noise, timestep)
     end
-[value(t) for t in sequence]
+new_noise
 end
 
 
@@ -61,11 +76,11 @@ begin
         for fit2 in fits
             if fit1 != fit2
                 offspring = []
-                for (f1,f2) in zip(fit1, fit2)
+                for (t1,t2) in zip(fit1, fit2) # TODO : improve.
                     if rand() <= rate
-                        push!(offspring, f2)
+                        push!(offspring, t1)
                     else
-                        push!(offspring, f1)
+                        push!(offspring, t2)
                     end
                 end
                 push!(offsprings, offspring)
