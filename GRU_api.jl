@@ -9,7 +9,7 @@ train!(model, datas, lr) =
 begin
 
     result = @distributed vcat for (x,y) in datas
-        d = @diff - sum(y .* log.(softmax([model(t) for t in x][end])))
+        d = @diff cross_entropy(prop(model, x), y)
         grads = []
         for mfield in fieldnames(Model)
             layer = getfield(model, mfield)
@@ -38,5 +38,17 @@ begin
 end
 
 
+create_model_definitions(layer) =
+begin
+    eval(Meta.parse("@everywhere " * "struct Model\n" * *(["l$i::Layer\n" for i in 1:length(layers) +1]...) * "end"))
+    eval(Meta.parse("@everywhere " * "(model::Model)(io) =\n" * "begin\n" * *(["io = model.l$i(io)\n" for i in 1:length(layers) +1]...) * "end"))
+end
 
-prop(model, x) = softmax([model(t) for t in x][end])
+
+@everywhere prop(model, x) = softmax([model(t) for t in x][end])
+
+
+@everywhere cross_entropy(out, label) =
+begin
+    - sum(label .* log.(out))
+end
