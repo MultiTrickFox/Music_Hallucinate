@@ -38,8 +38,8 @@ const hm_mostfit     = 10
 const track_length   = 16
 const size_per_time  = 42
 
-const hm_generations = 20
-const hm_total_loop  = 10
+const hm_generations = 10
+const hm_total_loop  = 20
 
 const crossover_rate = 0.2
 const update_rate    = 0.1
@@ -56,7 +56,8 @@ evolve(noises, iterations) =
 begin
     # loss_init = sum(scores(model, noises, class))
 
-    for _ in 1:iterations
+    for i in 1:iterations
+        println("Iterating: ", i)
 
         noises = mostfit(noises, hm_mostfit, model, class)
         noises = crossover(noises, crossover_rate)
@@ -76,7 +77,9 @@ end
 
 loop(noises, hm_loop, hm_generations) =
 
-    for _ in 1:hm_loop
+    for i in 1:hm_loop
+        println("Looping: ", i)
+
         noises = evolve(noises, hm_generations)
     end
 
