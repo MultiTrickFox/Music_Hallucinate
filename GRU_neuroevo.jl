@@ -27,10 +27,9 @@ begin
     sequence = [Param(t) for t in noise]
     result =
         @diff begin
-            out = prop(model, sequence)
-            # label = argmax(reshape(out, length(out)))
+            out = prop(model, sequence) # label = argmax(reshape(out, length(out)))
             label = [i == class ? 1.0 : 0.0 for i in 1:length(out)]
-            loss  = - sum(label .* log.(out))
+            loss  = cross_entropy(out, label)
     end
     for t in sequence
         g = grad(result, t)
@@ -38,8 +37,6 @@ begin
     end
 [value(t) for t in sequence]
 end
-
-
 
 
 mostfit(noises, hm, model, class) =
