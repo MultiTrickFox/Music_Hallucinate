@@ -2,7 +2,7 @@ include("GRU_api.jl")
 include("GRU_neuroevo.jl")
 
 
-@everywhere const in_size  = 42
+@everywhere const in_size  = 52
 @everywhere const layers   = [40, 30, 25]
 @everywhere const out_size = 20
 
@@ -21,10 +21,8 @@ const data = [[[randn(1, in_size) for i in 1:rand(1:16)], softmax(randn(1, out_s
 
 
 for i in 1:hm_epochs
-
     print("epoch: $i ")
     train!(model, data, learning_rate)
-
 end
 
 
@@ -35,65 +33,66 @@ end
 
 const class = 4
 
-const hm_population  = 50
-const hm_mostfit     = 5
+const hm_initial     = 5_000#10_000
+const hm_population  = 500#5_000
+const hm_mostfit     = 20#50
 
 const track_length   = 8
 const size_per_time  = in_size
 const hm_classes     = out_size
 
-const hm_generations = 10
-const hm_total_loop  = 100
+const hm_generations = 100
+const hm_total_loop  = 1_000
 
 const crossover_prob = .2
-const mutate_prob    = .5
+const mutate_prob    = .2
 const mutate_rate    = .2
-const update_rate    = .1
+const update_rate    = .01
 
 
 
-noises = [noise(track_length, size_per_time) for _ in 1:hm_population]
+population = [noise(track_length, size_per_time) for _ in 1:hm_initial]
 
 
 
-evolve(noises, iterations) =
+evolve(population, iterations) =
 begin
     for i in 1:iterations
 
-        fits = mostfit(noises, hm_mostfit, model, class)
-        # trained_fits = [update(noise, model, update_rate, class) for noise in fits]
-        produced = crossover(fits, crossover_prob)
-        noises = vcat(noises, produced)
-        noises = mutate(noises, mutate_rate, mutate_prob)
-        noises = vcat(noises, fits)
-        # noises = vcat(noises, other_noises) # for noise in other_noises push!(noises, noise) end
-        noises = mostfit(noises, hm_population, model, class)
+        fits = mostfit(population, hm_mostfit, model, class)
+        trained_fits = update(fits, model, update_rate, class)
+        offsprings = crossover(fits, crossover_prob)
+        population = vcat(population, offsprings)
+        population = mutate(population, mutate_rate, mutate_prob)
+        population = vcat(population, fits)
+        population = vcat(population, trained_fits)
+        population = vcat(fits, population)
+        population = mostfit(population, hm_population, model, class)
 
         print("/")
     end
     print("\n")
 
-    loss = sum(scores(model, mostfit(noises, hm_mostfit, model, class), class)/hm_mostfit)
-    # loss = scores(model, mostfit(noises, 1, model, class), class)
+    loss = sum(scores(model, mostfit(population, hm_mostfit, model, class), class))
     @show loss
-[noises, loss]
+
+[population, loss]
 end
 
 
-loop(noises, hm_loop, hm_generations) =
+loop(population, hm_loop, hm_generations) =
 begin
-    loss_init = sum(scores(model, mostfit(noises, hm_mostfit, model, class), class))
+    loss_init = sum(scores(model, mostfit(population, hm_mostfit, model, class), class))
+    @show loss_init
 
     for i in 1:hm_loop
         print("loop: ",i," ")
-
-        noises, loss = evolve(noises, hm_generations)
-
+        population, loss = evolve(population, hm_generations)
         println("Progress: ", (1-loss/loss_init)*100)
     end
-noises
+population
 end
 
 
 
-noises = loop(noises, hm_total_loop, hm_generations)
+population = loop(population, hm_total_loop, hm_generations)

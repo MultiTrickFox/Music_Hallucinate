@@ -1,5 +1,4 @@
 include("GRU_api.jl")
-# TODO : use pmap
 
 
 
@@ -11,28 +10,27 @@ end
 
 scores(model, noises, wrt) =
 begin
-    hm_classes = length(noises)
-    scores = [0.0 for _ in 1:hm_classes]
-    label = [i == wrt ? 0.0 : 1.0 for i in 1:hm_classes]
+    label = [i == wrt ? 1 : 0 for i in 1:hm_classes]
     @distributed (vcat) for noise in noises
         out = prop(model, noise)
     [cross_entropy(out, label)]
     end
-# reshape(scores, length())
 end
 
 
-update(noise, model, lr, class) =
+update(noises, model, lr, class) =
 begin
-    sequence = [Param(t) for t in noise]
-    result =
-        @diff begin
-            out = prop(model, sequence) # label = argmax(reshape(out, length(out)))
-            label = [i == class ? 1.0 : 0.0 for i in 1:length(out)]
-            cross_entropy(out, label)
+    @distributed (vcat) for noise in noises
+            sequence = [Param(t) for t in noise]
+            label = [i == class ? 1 : 0 for i in 1:hm_classes]
+            result =
+                @diff begin
+                    out = prop(model, sequence) # label = argmax(reshape(out, length(out)))
+                    cross_entropy(out, label)
+                end
+            sequence = [value(t - grad(result,t)*lr) for t in sequence]
+        [sequence]
     end
-    sequence = [value(t - grad(result,t)*lr) for t in sequence]
-sequence
 end
 
 
@@ -60,8 +58,8 @@ end
 mostfit(noises, hm, model, class) =
 begin
     noises = deepcopy(noises)
-    sc = scores(model, noises, class)
     fits = []
+    sc = scores(model, noises, class)
     for _ in 1:hm
         am = argmin(sc)
         push!(fits, noises[am])
@@ -74,6 +72,7 @@ end
 
 crossover(fits, prob) =
 begin
+    len = Int8(length(fits[1][1]) * 1/4)
     offsprings = []
     for fit1 in fits
         @distributed (vcat) for fit2 in fits
@@ -81,17 +80,15 @@ begin
                 offspring = []
                 for (t1,t2) in zip(fit1, fit2)
                     timestep = []
-                    for (e1,e2) in zip(t1,t2)
+                    for i in 1:len
                         if rand() <= prob
-                            push!(timestep, e2)
+                            push!(timestep, t2[i])
                         else
-                            push!(timestep, e1)
+                            push!(timestep, t1[i])
                         end
                     push!(offspring, timestep)
-                    # [timestep]
                     end
                 end
-                # push!(offsprings, offspring)
             [offspring]
             end
         end
