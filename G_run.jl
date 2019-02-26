@@ -1,20 +1,26 @@
+using Distributed: procs, addprocs
+if length(procs()) <= 2
+    addprocs(Sys.CPU_THREADS-2)
+end
+
+
 include("GRU_api.jl")
 include("GRU_neuroevo.jl")
 
 
-@everywhere const in_size  = 52
-@everywhere const layers   = [40, 30, 25]
-@everywhere const out_size = 20
+
+@everywhere const in_size       = 52
+@everywhere const layers        = [40, 30, 25]
+@everywhere const out_size      = 20
+
+@everywhere const learning_rate = .01
+@everywhere const hm_epochs     = 10
+
 
 
 create_model_definitions(layers)
 
 const model = Model(mk_layers(in_size, layers, out_size)...)
-
-
-const learning_rate = .01
-const hm_epochs     = 10
-
 
 const data = [[[randn(1, in_size) for i in 1:rand(1:16)], softmax(randn(1, out_size))] for _ in 1:100]
 
@@ -31,53 +37,29 @@ end
 
 
 
-const class = 4
+@everywhere const class = 4
 
-const hm_initial     = 5_000#10_000
-const hm_population  = 500#5_000
-const hm_mostfit     = 20#50
+@everywhere const hm_initial     = 10_000
+@everywhere const hm_population  = 2_500
+@everywhere const hm_mostfit     = 50
+@everywhere const hm_offspring   = 4
 
-const track_length   = 8
-const size_per_time  = in_size
-const hm_classes     = out_size
+@everywhere const track_length   = 8
+@everywhere const size_per_time  = in_size
+@everywhere const hm_classes     = out_size
 
-const hm_generations = 100
-const hm_total_loop  = 1_000
+@everywhere const hm_generations = 10
+@everywhere const hm_total_loop  = 1_000
 
-const crossover_prob = .2
-const mutate_prob    = .2
-const mutate_rate    = .2
-const update_rate    = .01
+@everywhere const crossover_prob = .2
+@everywhere const mutate_prob    = .3
+@everywhere const mutate_rate    = .2
+@everywhere const update_rate    = .01
 
 
 
 population = [noise(track_length, size_per_time) for _ in 1:hm_initial]
 
-
-
-evolve(population, iterations) =
-begin
-    for i in 1:iterations
-
-        fits = mostfit(population, hm_mostfit, model, class)
-        trained_fits = update(fits, model, update_rate, class)
-        offsprings = crossover(fits, crossover_prob)
-        population = vcat(population, offsprings)
-        population = mutate(population, mutate_rate, mutate_prob)
-        population = vcat(population, fits)
-        population = vcat(population, trained_fits)
-        population = vcat(fits, population)
-        population = mostfit(population, hm_population, model, class)
-
-        print("/")
-    end
-    print("\n")
-
-    loss = sum(scores(model, mostfit(population, hm_mostfit, model, class), class))
-    @show loss
-
-[population, loss]
-end
 
 
 loop(population, hm_loop, hm_generations) =

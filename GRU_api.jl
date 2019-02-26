@@ -1,4 +1,5 @@
-using Distributed: @everywhere, @distributed, addprocs, procs
+using Distributed: @everywhere, @distributed
+using Distributed: procs, addprocs
 if length(procs()) <= 2
     addprocs(Sys.CPU_THREADS-2)
 end ; @everywhere include("GRU_dynamic_struct.jl")
@@ -55,8 +56,6 @@ begin
                 setfield!(layer, lfield, Param(getfield(layer, lfield) - g[i] .* lr))
             end
         end
-
     end
-
     @show loss
 end
