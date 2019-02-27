@@ -33,7 +33,7 @@ fits
 end
 
 
-@everywhere update((noises, model, lr, class)) =
+@everywhere update((noises, model, lr)) =
 begin
     @distributed (vcat) for noise in noises
             sequence = [Param(t) for t in noise]
@@ -49,7 +49,7 @@ begin
 end
 
 
-@everywhere evolve_helper((population, fits)) =
+@everywhere evolution((population, fits)) =
 begin
     offsprings = crossover(fits, crossover_prob)
     population = vcat(population, offsprings)
@@ -62,16 +62,9 @@ end
 begin
     new_noises = @distributed (vcat) for noise in noises
         new_noise = []
-        for (it,t) in enumerate(noise)
-            timestep = []
-            for (iv,v) in enumerate(t)
-                if rand() <= prob
-                    v += randn() * rate
-                end
-                push!(timestep, v)
-            end
-            timestep = reshape(timestep, 1, length(timestep))
-            push!(new_noise, timestep)
+        for t in noise
+            timestep = [rand() <= prob ? check_bounds(v+(randn()*rate)) : v for v in t]
+            push!(new_noise, reshape(timestep, 1, length(timestep)))
         end
         [new_noise]
     end
@@ -116,6 +109,11 @@ all_offsprings
 end
 
 
+@everywhere check_bounds(val; min_val=-1, max_val=1) =
+    if     val > max_val max_val
+    elseif val < min_val min_val
+    else   val
+    end
 
 
 
@@ -125,15 +123,16 @@ begin
 
         fits = mostfit(population, hm_mostfit, model, class)
 
+
         arr = ["str", 1]
         @sync begin
-            @async arr[1] = remotecall_fetch(evolve_helper, 1, [population, fits])
-            @async arr[2] = remotecall_fetch(update, 2, [fits, model, update_rate, class])
+            @async arr[1] = remotecall_fetch(evolution, 1, [population, fits])
+            @async arr[2] = remotecall_fetch(update, 2, [fits, model, update_rate])
         end
 
-        population = vcat(arr[1], arr[2], fits)
+        # population = vcat(evolution([population, fits]), fits)
 
-        population = mostfit(population, hm_population, model, class)
+        population = mostfit(vcat(arr[1], arr[2], fits), hm_population, model, class)
 
         print("/")
     end

@@ -39,9 +39,9 @@ end
 
 @everywhere const class = 4
 
-@everywhere const hm_initial     = 10_000
-@everywhere const hm_population  = 2_500
-@everywhere const hm_mostfit     = 50
+@everywhere const hm_initial     = 1_000
+@everywhere const hm_population  = 1_000
+@everywhere const hm_mostfit     = 100
 @everywhere const hm_offspring   = 4
 
 @everywhere const track_length   = 8
@@ -69,7 +69,7 @@ begin
 
     for i in 1:hm_loop
         print("loop: ",i," ")
-        population, loss = evolve(population, hm_generations)
+        @time population, loss = evolve(population, hm_generations)
         println("Progress: ", (1-loss/loss_init)*100)
     end
 population
