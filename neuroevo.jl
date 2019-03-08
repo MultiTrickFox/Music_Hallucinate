@@ -4,17 +4,29 @@ include("GRU_api.jl")
 
 @everywhere noise(track_length, size_per_time) =
 begin
-    [randn(1,size_per_time) for i in 1:track_length]
+    noise = []
+    total_duration = 0.0
+    while total_duration < track_length
+        vec = randn(1,size_per_time)
+        durations = vec[Int8(length(vec)*2/4):Int8(length(vec)*3/4)-1]
+        durations = [total_duration+e<track_length ? e : track_length-total_duration for e in durations]
+        total_duration += maximum(durations)
+        for i in 1:length(vec)*1/4
+            vec[Int8(i)] = durations[Int8(i)]
+        end
+        push!(noise, vec)
+    end
+noise
 end
 
 
 @everywhere scores(model, noises, wrt) =
 begin
     label = [i == wrt ? 1 : 0 for i in 1:hm_classes]
-    @distributed (vcat) for noise in noises
-        out = prop(model, noise)
-    [cross_entropy(out, label)]
+    sc = @distributed (vcat) for noise in noises
+        cross_entropy(prop(model, noise), label)
     end
+sc
 end
 
 
@@ -36,15 +48,16 @@ end
 @everywhere update((noises, model, lr)) =
 begin
     @distributed (vcat) for noise in noises
-            sequence = [Param(t) for t in noise]
+            noise = [Param(t) for t in noise]
             label = [i == class ? 1 : 0 for i in 1:hm_classes]
             result =
                 @diff begin
-                    out = prop(model, sequence)
+                    out = prop(model, noise)
                     cross_entropy(out, label)
                 end
-            sequence = [value(t - grad(result,t)*lr) for t in sequence]
-        [sequence]
+            noise = [value(t - grad(result,t)*lr) for t in noise]
+            noise = reshape(noise, 1, length(noise))
+        [noise]
     end
 end
 
@@ -63,7 +76,14 @@ begin
     new_noises = @distributed (vcat) for noise in noises
         new_noise = []
         for t in noise
-            timestep = [rand() <= prob ? check_bounds(v+(randn()*rate)) : v for v in t]
+            timestep = []
+            for v in t[1:Int8(length(t)*3/4)]
+                value = rand() <= prob ? bound(v+(randn()*rate)) : v
+                push!(timestep, value)
+            end
+            for v in t[end-(Int8(length(t)*1/4)-1):end]
+                push!(timestep, v)
+            end
             push!(new_noise, reshape(timestep, 1, length(timestep)))
         end
         [new_noise]
@@ -95,6 +115,7 @@ begin
                         for i in len+1:length(fits[1][1])
                             push!(timestep, t1[i])
                         end
+                        timestep = reshape(timestep, 1, length(timestep))
                         push!(offspring, timestep)
                     end
                     push!(offsprings, offspring)
@@ -109,7 +130,7 @@ all_offsprings
 end
 
 
-@everywhere check_bounds(val; min_val=-1, max_val=1) =
+@everywhere bound(val; min_val=-1, max_val=1) =
     if     val > max_val max_val
     elseif val < min_val min_val
     else   val
@@ -123,23 +144,24 @@ begin
 
         fits = mostfit(population, hm_mostfit, model, class)
 
+        # results = ["str", 1]
+        # @sync begin
+        #     @async results[1] = remotecall_fetch(evolution, 1, [population, fits])
+        #     @async results[2] = remotecall_fetch(update, 2, [fits, model, update_rate])
+        # end
 
-        arr = ["str", 1]
-        @sync begin
-            @async arr[1] = remotecall_fetch(evolution, 1, [population, fits])
-            @async arr[2] = remotecall_fetch(update, 2, [fits, model, update_rate])
-        end
+        # population = vcat(results[1], results[2], fits)
 
-        # population = vcat(evolution([population, fits]), fits)
+        population = vcat(evolution([population, fits]), fits)
 
-        population = mostfit(vcat(arr[1], arr[2], fits), hm_population, model, class)
+        population = mostfit(population, hm_population, model, class)
 
         print("/")
     end
     print("\n")
 
     loss = sum(scores(model, mostfit(population, hm_mostfit, model, class), class))
-    @show loss
+    # @show loss
 
 [population, loss]
 end

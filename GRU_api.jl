@@ -1,5 +1,6 @@
 using Distributed: @everywhere, @distributed
 using Distributed: procs, addprocs
+using Random: shuffle
 if length(procs()) <= 2
     addprocs(Sys.CPU_THREADS-2)
 end ; @everywhere include("GRU_dynamic_struct.jl")
@@ -33,7 +34,7 @@ end
 train!(model, datas, lr) =
 begin
 
-    result = @distributed vcat for (x,y) in datas
+    result = @distributed vcat for (x,y) in shuffle(datas)
         d = @diff cross_entropy(prop(model, x), y)
         grads = []
         for mfield in fieldnames(Model)

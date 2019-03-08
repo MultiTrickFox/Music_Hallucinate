@@ -4,11 +4,6 @@ using Knet: @diff, Param, value, grad
 sigm(x) = 1.0 / (1.0 + exp(-x))
 
 
-in_size  = 10
-layers   = [8, 6, 5]
-out_size = 3
-
-
 
 mutable struct Layer
     wai::Param
@@ -67,5 +62,13 @@ begin
     for layer in model
         in = layer(in)
     end
+    for layer in model
+        setfield!(layer, :state, zeros(1, size(getfield(layer, :bs))[end]))
+    end
 in
+end
+
+cross_entropy(out, label) =
+begin
+    - sum(label .* log.(out))
 end
