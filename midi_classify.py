@@ -57,6 +57,7 @@ empty_vec = [0 for _ in range(len(note_reverse_dict))]
 
 def preproc_raw_file(raw_file):
     # try:
+        print(f"working on: {raw_file}")
         sample = converter.parse(raw_file)
         parts = analyze_parts(sample)
 
@@ -215,7 +216,7 @@ def class_pars_fn(args):
     label = [0 if _ != i else 1 for _ in range(hm_classes)]
     if verbose: print(f"class {i+1} : {folder} {len(samples)} files.")
     with Pool(cpu_count()) as p:
-        results = p.map_async(preproc_raw_file, samples)
+        results = p.map_async(preproc_raw_file, samples, chunksize=cpu_count())
         p.close()
         p.join()
         for res in results.get():
@@ -250,7 +251,7 @@ hm_classes = len(sample_folders)
 
 if __name__ == '__main__':
 
-    with Pool(cpu_count()) as p:
+    # with Pool(cpu_count()) as p:
         [class_pars_fn(e) for e in enumerate(sample_folders)]
         # _ = p.map_async(class_pars_fn, enumerate(sample_folders))
         # p.close()
