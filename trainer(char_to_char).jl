@@ -19,7 +19,13 @@ create_model_definitions(layers)
 
 const model = Model(mk_layers(in_size, layers, out_size)...)
 
-const data  = [import_data(file) for file in glob("*.txt")][end-1:end]
+# const data  = [import_data(file) for file in glob("*.txt")]
+const data = import_data(glob("*.txt")[1])
+
+for d in data
+    println(length(d))
+end
+
 
 # const data = [[randn(1,in_size) for _ in 1:3] for __ in 1:2]
 

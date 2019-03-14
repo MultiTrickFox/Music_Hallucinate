@@ -90,10 +90,28 @@ end
 import_data(file) =
     open(file) do f
         data = []
+        sample = []
         for line in eachline(f)
-            nrs = split(line, " ")
-            arr = [parse(Float32, nr) for nr in nrs[1:end-1]]
-            push!(data, reshape(arr, 1, length(arr)))
+            if line == ";"
+                if length(sample) != 0
+                    push!(data, sample)
+                    sample = []
+                end
+            else
+                nrs = split(line, " ")
+                arr = []
+                for nr in nrs
+                    try
+                        push!(arr, parse(Float32, nr))
+                    catch end
+                end
+                # arr = [parse(Float32, nr) for nr in nrs]
+                push!(sample, reshape(arr, 1, length(arr)))
+            end
         end
+        if length(sample) != 0
+            push!(data, sample)
+        end
+        println("from $file imported $(length(data)) samples.")
     data
     end
