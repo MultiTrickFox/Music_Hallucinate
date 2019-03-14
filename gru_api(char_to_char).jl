@@ -3,6 +3,9 @@ using Distributed: @everywhere, @spawnat, @distributed
 @everywhere include("gru_dynamic_struct.jl")
 
 
+const window_size = 100
+
+
 
 create_model_definitions(layer) =
 begin
@@ -25,18 +28,11 @@ end)
 
 prop(model, x) =
 begin
-    for mfield in fieldnames(Model)
-        layer = getfield(model, mfield)
-        layer.state = zeros(1, length(layer.bs))
-    end
-    outs = []
-    for t in x
-        out_t = model(t)
-        out_t = soften(out_t)
-        push!(outs, out_t)
-    end
-outs
-# [soften(model(t)) for t in x]
+    # for mfield in fieldnames(Model)
+    #     layer = getfield(model, mfield)
+    #     layer.state = zeros(1, length(layer.bs))
+    # end
+[soften(model(t)) for t in x]
 end
 
 
@@ -51,11 +47,16 @@ train!(model, datas, lr) =
 begin
     results = @distributed (vcat) for sequence in shuffle(datas)
         d = @diff (begin
-                x = sequence[1:end-1]
-                y = sequence[2:end]
-                o = prop(model, x)
-                l = [cross_entropy(o_t, y_t) for (o_t, y_t) in zip(o, y)]
-            sum(l) end)
+                sequence_parts = batchify(sequence, window_size)
+                part_losses = []
+                for part in sequence_parts
+                    x = sequence[1:end-1]
+                    y = sequence[2:end]
+                    o = prop(model, x)
+                    l = [cross_entropy(o_t, y_t) for (o_t, y_t) in zip(o, y)]
+                    push!(part_losses, sum(l))
+                end
+            sum(part_losses) end)
         grads = []
         for mfield in fieldnames(Model)
             layer = getfield(model, mfield)
@@ -86,6 +87,24 @@ end
 
 
 ### Helper Utils ###
+
+batchify(resource, batch_size) =
+begin
+    hm_batches = trunc(Int, length(resource)/batch_size)
+    hm_leftover = length(resource)%batch_size
+    batches = []
+    if batch_size > length(resource)
+        push!(batches, resource)
+    else
+        for i in 1:hm_batches
+            push!(batches, resource[(i-1)*batch_size+1:i*batch_size])
+        end
+        if hm_leftover != 0
+            push!(batches, resource[(end-hm_leftover)-1:end])
+        end
+    end
+batches
+end
 
 import_data(file) =
     open(file) do f
