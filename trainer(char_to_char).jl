@@ -2,13 +2,13 @@ using Distributed: procs, addprocs
 using Distributed: @everywhere
 using Glob: glob
 if length(procs()) <= 2
-    addprocs(Sys.CPU_THREADS-2)
+    addprocs(Sys.CPU_THREADS-1)
     println("$(length(procs())) cores running.")
 end ; @everywhere include("gru_api(char_to_char).jl")
 
 
 const learning_rate = .01
-const hm_epochs     = 10
+const hm_epochs     = 50
 
 const in_size       = 52
 const layers        = [94]
@@ -20,11 +20,16 @@ create_model_definitions(layers)
 
 const model = Model(mk_layers(in_size, layers, out_size)...)
 
-# const data  = [import_data(file) for file in glob("*.txt")]
-const data = import_data(glob("*.txt")[1])
-# const data = [[randn(1,in_size) for _ in 1:3] for __ in 1:2]
+const data = import_data(glob("class*.txt")[1])
+
 
 for i in 1:hm_epochs
     print("epoch: $i ")
-    train!(model, data[end-2:end], learning_rate)
+    train!(model, data, learning_rate)
 end
+
+save_model(model)
+
+
+print("Hit enter to continue..")
+chomp(readline())

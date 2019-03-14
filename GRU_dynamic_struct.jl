@@ -2,8 +2,6 @@ using Knet: @diff, Param, value, grad, params
 using Knet: sigm, tanh, softmax
 
 
-# sigm(x) = 1.0 / (1.0 + exp(-x))
-
 
 mutable struct Layer
     wai::Param

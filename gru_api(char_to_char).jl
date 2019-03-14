@@ -3,7 +3,7 @@ using Distributed: @everywhere, @spawnat, @distributed
 @everywhere include("gru_dynamic_struct.jl")
 
 
-const window_size = 100
+const window_size = 50
 
 
 
@@ -134,3 +134,26 @@ import_data(file) =
         println("from $file imported $(length(data)) samples.")
     data
     end
+
+save_model(model) =
+begin
+    open("model.txt", "w+") do file
+        for mfield in fieldnames(Model)
+            layer = getfield(model, mfield)
+            for lfield in fieldnames(Layer)
+                if lfield != :state
+                    items = value(getfield(layer, lfield))
+                    for i in items
+                        write(file, string(i) * " ")
+                    end
+                    write(file, "\n")
+                end
+            end
+        end
+    end
+end
+
+load_model() =
+begin
+
+end
