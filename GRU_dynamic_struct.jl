@@ -81,19 +81,3 @@ begin
     end
 internal
 end
-
-
-prop(model, x) =
-begin
-    for mfield in fieldnames(Model)
-        layer = getfield(model, mfield)
-        layer.state = zeros(1, length(layer.bs))
-    end
-softmax([model(t) for t in x][end])
-end
-
-
-cross_entropy(out, label) =
-begin
-    - sum(label .* log.(out))
-end
