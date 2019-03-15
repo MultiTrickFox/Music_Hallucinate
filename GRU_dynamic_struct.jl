@@ -18,15 +18,15 @@ end
 Layer(in_size, out_size) =
 begin
     sq = sqrt(2/(in_size+out_size))
-    wai = Param(2*sq .* randn(in_size, out_size) .- sq)
-    was = Param(2*sq .* randn(out_size, out_size) .- sq)
-    ba  = Param(zeros(1, out_size))
-    wri = Param(2*sq .* randn(in_size, out_size) .- sq)
-    wrs = Param(2*sq .* randn(out_size, out_size) .- sq)
-    br  = Param(zeros(1, out_size))
-    wsi = Param(2*sq .* randn(in_size, out_size) .- sq)
-    bs  = Param(zeros(1, out_size))
-    state = zeros(1, out_size)
+    wai = Param(2*sq .* randn(Float32, in_size, out_size) .- sq)
+    was = Param(2*sq .* randn(Float32, out_size, out_size) .- sq)
+    ba  = Param(zeros(Float32, 1, out_size))
+    wri = Param(2*sq .* randn(Float32, in_size, out_size) .- sq)
+    wrs = Param(2*sq .* randn(Float32, out_size, out_size) .- sq)
+    br  = Param(zeros(Float32, 1, out_size))
+    wsi = Param(2*sq .* randn(Float32, in_size, out_size) .- sq)
+    bs  = Param(zeros(Float32, 1, out_size))
+    state = zeros(Float32, 1, out_size)
     layer = Layer(wai, was, ba, wri, wrs, br, wsi, bs, state)
 layer
 end
