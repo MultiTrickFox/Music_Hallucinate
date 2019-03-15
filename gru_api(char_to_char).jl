@@ -1,4 +1,3 @@
-using Random: shuffle
 using Distributed: @everywhere, @spawnat, @distributed
 @everywhere include("gru_dynamic_struct.jl")
 
@@ -43,31 +42,34 @@ end
 
 
 
-train!(model, datas, lr) =
+train!(model, data, lr, batch_size) =
 begin
-    results = @distributed (vcat) for sequence in shuffle(datas)
-        d = @diff (begin
-                sequence_parts = batchify(sequence, window_size)
-                part_losses = []
-                for part in sequence_parts
-                    x = sequence[1:end-1]
-                    y = sequence[2:end]
-                    o = prop(model, x)
-                    l = [cross_entropy(o_t, y_t) for (o_t, y_t) in zip(o, y)]
-                    push!(part_losses, sum(l))
+    results = []
+    for i in 1:trunc(Int, length(data)/batch_size)
+        res = @distributed (vcat) for sequence in data[(i-1)*batch_size+1:i*batch_size]
+            d = @diff (begin
+                    sequence_parts = batchify(sequence, window_size)
+                    part_losses = []
+                    for part in sequence_parts
+                        x = sequence[1:end-1]
+                        y = sequence[2:end]
+                        o = prop(model, x)
+                        l = [cross_entropy(o_t, y_t) for (o_t, y_t) in zip(o, y)]
+                        push!(part_losses, sum(l))
+                    end
+                sum(part_losses) end)
+            grads = []
+            for mfield in fieldnames(Model)
+                layer = getfield(model, mfield)
+                for lfield in fieldnames(Layer)
+                    push!(grads, grad(d, getfield(layer, lfield)))
                 end
-            sum(part_losses) end)
-        grads = []
-        for mfield in fieldnames(Model)
-            layer = getfield(model, mfield)
-            for lfield in fieldnames(Layer)
-                push!(grads, grad(d, getfield(layer, lfield)))
             end
+            @spawnat 1 print("/")
+            grads, value(d)
         end
-        @spawnat 1 print("/")
-        grads, value(d)
+        push!(results, res)
     end
-    print("\n")
 
     loss = 0.0
     for (g,l) in results
@@ -82,78 +84,4 @@ begin
         end
     end
     @show loss
-end
-
-
-
-### Helper Utils ###
-
-batchify(resource, batch_size) =
-begin
-    hm_batches = trunc(Int, length(resource)/batch_size)
-    hm_leftover = length(resource)%batch_size
-    batches = []
-    if batch_size > length(resource)
-        push!(batches, resource)
-    else
-        for i in 1:hm_batches
-            push!(batches, resource[(i-1)*batch_size+1:i*batch_size])
-        end
-        if hm_leftover != 0
-            push!(batches, resource[(end-hm_leftover)-1:end])
-        end
-    end
-batches
-end
-
-import_data(file) =
-    open(file) do f
-        data = []
-        sample = []
-        for line in eachline(f)
-            if line == ";"
-                if length(sample) != 0
-                    push!(data, sample)
-                    sample = []
-                end
-            else
-                nrs = split(line, " ")
-                arr = []
-                for nr in nrs
-                    try
-                        push!(arr, parse(Float32, nr))
-                    catch end
-                end
-                # arr = [parse(Float32, nr) for nr in nrs]
-                push!(sample, reshape(arr, 1, length(arr)))
-            end
-        end
-        if length(sample) != 0
-            push!(data, sample)
-        end
-        println("from $file imported $(length(data)) samples.")
-    data
-    end
-
-save_model(model) =
-begin
-    open("model.txt", "w+") do file
-        for mfield in fieldnames(Model)
-            layer = getfield(model, mfield)
-            for lfield in fieldnames(Layer)
-                if lfield != :state
-                    items = value(getfield(layer, lfield))
-                    for i in items
-                        write(file, string(i) * " ")
-                    end
-                    write(file, "\n")
-                end
-            end
-        end
-    end
-end
-
-load_model() =
-begin
-
 end
