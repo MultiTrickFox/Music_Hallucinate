@@ -12,11 +12,17 @@ end
 
 
 soften = arr -> (begin
-    soft_arr = softmax(arr[1:Int(length(arr)/4)])
-    for (i,e) in enumerate(soft_arr)
-        arr[i] = e
-    end
-arr
+    new_arr = []
+    append!(new_arr, softmax(arr[1:Int(length(arr)/4)]))
+    # soft = softmax(arr[1:Int(length(arr)/4)])
+    # for i in 1:Int(length(arr)/4)
+    #     push!(new_arr, soft[i])
+    # end
+    append!(new_arr, sigm.(arr[Int(length(arr)/4):Int(length(arr)*3/4)]))
+    # for i in Int(length(arr)/4):Int(length(arr)*3/4)
+    #     push!(new_arr, sigm(arr[i]))
+    # end
+new_arr
 end)
 
 prop(model, x) =
@@ -28,6 +34,11 @@ begin
 soften([model(t) for t in x][end])
 end
 
+
+cross_entropy(out, label) =
+begin
+    - sum(label .* log.(out))
+end
 
 
 train!(model, datas, lr) =
