@@ -12,8 +12,9 @@ end
 
 
 soften = arr -> (begin
-    for (i,e) in enumerate(arr[1:Int(length(arr)/4)])
-        arr[i] = softmax(e)
+    soft_arr = softmax(arr[1:Int(length(arr)/4)])
+    for (i,e) in enumerate(soft_arr)
+        arr[i] = e
     end
 arr
 end)
