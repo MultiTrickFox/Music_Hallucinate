@@ -1,11 +1,13 @@
-include("GRU_api.jl")
-include("GRU_neuroevo.jl")
-# using Distributed: procs, addprocs
-# if length(procs()) <= 2
-#     addprocs(Sys.CPU_THREADS-2)
-#     println("$(length(procs())) procs running.")
-# end
-
+using Glob: glob
+using Distributed: procs, addprocs
+using Distributed: @everywhere
+if length(procs()) <= 2
+    addprocs(Sys.CPU_THREADS-2)
+    println("$(length(procs())) procs running.")
+end
+@everywhere include("utils.jl")
+@everywhere include("gru_api(seq_to_vec).jl")
+@everywhere include("neuroevo.jl")
 
 
 @everywhere const in_size       = 52
@@ -20,6 +22,8 @@ include("GRU_neuroevo.jl")
 create_model_definitions(layers)
 
 const model = Model(mk_layers(in_size, layers, out_size)...)
+
+const data = import_data(glob("class*.txt")[1])
 
 # const data = [[[randn(1, in_size) for i in 1:rand(1:16)], softmax(randn(1, out_size))] for _ in 1:100]
 

@@ -1,5 +1,5 @@
 using Distributed: @sync, @async, remotecall_fetch, @everywhere
-include("gru_api.jl")
+include("gru_api(seq_to_vec).jl")
 
 
 @everywhere noise(track_length, size_per_time) =
